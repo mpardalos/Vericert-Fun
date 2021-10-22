@@ -30,6 +30,7 @@ Require Import vericert.common.IntegerExtra.
 Require Import vericert.common.Vericertlib.
 Require Import vericert.common.ZExtra.
 Require Import vericert.common.ListExtra.
+Require Import vericert.common.ASTExtra.
 Require Import vericert.hls.Array.
 Require Import vericert.hls.AssocMap.
 Require vericert.hls.HTL.
@@ -164,7 +165,7 @@ Inductive match_frames (prog : RTL.program) (current_id : HTL.ident) (mem : Memo
       (EXTERN_CALLER : has_externctrl m current_id ret rst fin)
       (MEXTERNCTRL : match_externctrl m asr)
       (NO_MAIN_CALLS : (mid = (AST.prog_main prog) -> rtl_tl = nil))
-      (FUNC_NAME : find_func (Genv.globalenv prog) mid = Some (AST.Internal f))
+      (FUNC_NAME : find_named_func (Genv.globalenv prog) mid = Some (AST.Internal f))
       (JOIN_CTRL : (HTL.mod_controllogic m)!st = Some (state_wait (HTL.mod_st m) fin pc))
       (JOIN_DATA : (HTL.mod_datapath m)!st = Some (join fin rst ret dst))
       (TAILS : match_frames prog mid mem rtl_tl htl_tl)
@@ -190,7 +191,7 @@ Inductive match_states (prog : RTL.program) : RTL.state -> HTL.state -> Prop :=
     (CONST : match_constants m asr)
     (MEXTERNCTRL : match_externctrl m asr)
     (NO_MAIN_CALLS : (mid = (AST.prog_main prog) -> rtl_stk = nil))
-    (FUNC_NAME : find_func (Genv.globalenv prog) mid = Some (AST.Internal f)),
+    (FUNC_NAME : find_named_func (Genv.globalenv prog) mid = Some (AST.Internal f)),
     match_states prog
                  (RTL.State rtl_stk     f sp st rs      mem)
                  (HTL.State htl_stk mid m    st asr asa    )
@@ -212,7 +213,7 @@ Inductive match_states (prog : RTL.program) : RTL.state -> HTL.state -> Prop :=
     (ARGS_BASED : Forall (fun a => stack_based a blk) rtl_args)
     (MARGS : list_forall2 val_value_lessdef rtl_args htl_args)
     (NO_MAIN_CALLS : (mid = (AST.prog_main prog) -> rtl_stk = nil))
-    (FUNC_NAME : find_func (Genv.globalenv prog) mid = Some (AST.Internal f)),
+    (FUNC_NAME : find_named_func (Genv.globalenv prog) mid = Some (AST.Internal f)),
       match_states prog
                    (RTL.Callstate rtl_stk     (AST.Internal f) rtl_args mem)
                    (HTL.Callstate htl_stk mid m                htl_args).
@@ -779,14 +780,14 @@ Section CORRECTNESS.
 
   Lemma match_find_function : forall fn rs f m,
       RTL.find_function ge (inr fn) rs = Some (AST.Internal f) ->
-      find_func tge fn = Some (AST.Internal m) ->
+      find_named_func tge fn = Some (AST.Internal m) ->
       tr_module ge f m.
   Proof.
     intros * Hrtl Hhtl.
     destruct TRANSL as [MATCH _].
 
     unfold RTL.find_function in *. unfold_match Hrtl.
-    unfold find_func in *. unfold_match Hhtl.
+    unfold find_named_func in *. unfold_match Hhtl.
     replace b0 with b in *. clear b0.
 
     destruct (function_ptr_translated _ _ Hrtl) as [tf [? ?]].
@@ -1553,7 +1554,7 @@ Section CORRECTNESS.
   Qed.
 
   (* Lemma apply_only_main_has_ainstack : forall id f pc op args res pc', *)
-  (*     find_func ge id = Some (AST.Internal f) -> *)
+  (*     find_named_func ge id = Some (AST.Internal f) -> *)
   (*     (RTL.fn_code f) ! pc = Some i -> *)
   (*     id = (AST.prog_main prog) \/ ~ ainstack_instr i. *)
   (* Proof using TRANSL. *)
@@ -1569,7 +1570,7 @@ Section CORRECTNESS.
   (*   -  *)
 
   (*   right. *)
-  (*   unfold find_func in H. unfold_match H. *)
+  (*   unfold find_named_func in H. unfold_match H. *)
   (*   unfold only_main_has_ainstack in ONLY_ALLOWED_INSTRS. *)
   (*   rewrite Forall_forall in ONLY_ALLOWED_INSTRS. *)
   (*   exploit ONLY_ALLOWED_INSTRS. *)
@@ -1864,11 +1865,11 @@ Section CORRECTNESS.
 
   Lemma only_internal_calls : forall fd fn rs,
       RTL.find_function ge (inr fn) rs = Some fd ->
-      (exists f : RTL.function, find_func ge fn = Some (AST.Internal f)) ->
+      (exists f : RTL.function, find_named_func ge fn = Some (AST.Internal f)) ->
       (exists f, fd = AST.Internal f).
   Proof.
     intros * ? [? ?].
-    unfold find_func in *.
+    unfold find_named_func in *.
     unfold RTL.find_function in *.
     destruct (Genv.find_symbol ge fn); try discriminate.
     exists x. crush.
@@ -1955,12 +1956,12 @@ Section CORRECTNESS.
   Qed.
 
   Lemma transl_find : forall fn f,
-      find_func ge fn = Some (AST.Internal f) ->
+      find_named_func ge fn = Some (AST.Internal f) ->
       match_prog prog tprog ->
-      (exists f', find_func tge fn = Some (AST.Internal f')).
+      (exists f', find_named_func tge fn = Some (AST.Internal f')).
   Proof.
     intros.
-    unfold find_func in *.
+    unfold find_named_func in *.
     rewrite symbols_preserved.
     destruct (Genv.find_symbol ge fn); try discriminate.
     destruct (function_ptr_translated _ _ H) as [? [? ?]].

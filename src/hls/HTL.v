@@ -152,7 +152,7 @@ Qed.
 
 Definition genv := Globalenvs.Genv.t fundef unit.
 
-Definition find_func {F V} (ge : Globalenvs.Genv.t F V) (symb : AST.ident) : option F :=
+Definition find_named_func {F V} (ge : Globalenvs.Genv.t F V) (symb : AST.ident) : option F :=
   match Globalenvs.Genv.find_symbol ge symb with
   | None => None
   | Some b => Globalenvs.Genv.find_funct_ptr ge b
@@ -268,7 +268,7 @@ Inductive step : genv -> state -> Events.trace -> state -> Prop :=
          (Returnstate sf mid retval)
 | step_initcall :
     forall g callerid caller st asr asa sf callee_id callee callee_reset callee_params callee_param_vals,
-    find_func g callee_id = Some (AST.Internal callee) ->
+    find_named_func g callee_id = Some (AST.Internal callee) ->
 
     caller.(mod_externctrl)!callee_reset = Some (callee_id, ctrl_reset) ->
     (forall n param, nth_error callee_params n = Some param ->

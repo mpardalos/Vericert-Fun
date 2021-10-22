@@ -28,6 +28,7 @@ Require compcert.verilog.Op.
 
 Require Import vericert.common.Vericertlib.
 Require Import vericert.common.ListExtra.
+Require Import vericert.common.ASTExtra.
 Require Import vericert.hls.Verilog.
 Require Import vericert.hls.ValueInt.
 Require Import vericert.hls.HTL.
@@ -96,7 +97,7 @@ Inductive tr_code (ge : RTL.genv) (c : RTL.code) (pc : RTL.node) (stmnts : datap
 | tr_code_call :
     forall sig fn args dst n,
       c!pc = Some (RTL.Icall sig (inr fn) args dst n) ->
-      (exists fd, find_func ge fn = Some (AST.Internal fd)) ->
+      (exists fd, find_named_func ge fn = Some (AST.Internal fd)) ->
       Z.pos n <= Int.max_unsigned ->
 
       (exists pc2 fn_rst fn_return fn_finish fn_params,

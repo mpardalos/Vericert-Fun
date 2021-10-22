@@ -30,6 +30,7 @@ Require Import compcert.backend.RTL.
 Require Import vericert.common.Statemonad.
 Require Import vericert.common.Vericertlib.
 Require Import vericert.common.Maps.
+Require Import vericert.common.ASTExtra.
 Require Import vericert.hls.AssocMap.
 Require Import vericert.hls.HTL.
 Require Import vericert.hls.ValueInt.
@@ -547,7 +548,7 @@ Definition transf_instr (ge : RTL.genv) (fin rtrn stack: reg) (ni: node * instru
     | Icall sig (inl fn) args dst n' => error (Errors.msg "Indirect calls are not implemented.")
     | Icall sig (inr fn) args dst n' =>
       if Z.leb (Z.pos n') Integers.Int.max_unsigned
-      then match find_func ge fn with
+      then match find_named_func ge fn with
            | Some (AST.Internal _) =>
              do params <- map_externctrl_params fn args;
 
@@ -756,16 +757,10 @@ Proof.
   destruct (main_only_instr_dec i); auto.
 Qed.
 
-Definition find_func {F V} (ge : Genv.t F V) name :=
-  match Genv.find_symbol ge name with
-  | Some blk => Genv.find_funct_ptr ge blk
-  | None => None
-  end.
-
 Definition only_allowed_instrs (p : RTL.program) : Prop :=
   forall name f,
     name <> (AST.prog_main p) ->
-    find_func (Genv.globalenv p) name = Some (AST.Internal f) ->
+    find_named_func (Genv.globalenv p) name = Some (AST.Internal f) ->
     no_main_only_instrs (fn_code f).
 
 Definition only_allowed_instrs_dec (p : RTL.program) : decision (only_allowed_instrs p).
@@ -783,14 +778,14 @@ Proof.
     rewrite Forall_forall.
     split.
     - intros H * Hname Hfind.
-      unfold find_func in Hfind. unfold_match Hfind.
+      unfold find_named_func in Hfind. unfold_match Hfind.
       exploit H.
       + rewrite <- in_elements_iff. eassumption.
       + crush.
     - intros H [? ?] Hin * Hname Hfind_funct.
       rewrite <- in_elements_iff in *.
       eapply H; eauto.
-      unfold find_func, Genv.find_symbol.
+      unfold find_named_func, Genv.find_symbol.
       rewrite Hin. apply Hfind_funct.
   }
   intros.
@@ -836,7 +831,7 @@ Qed.
 
 Definition main_not_called (p : RTL.program) : Prop :=
   forall name f,
-    find_func (Genv.globalenv p) name = Some (AST.Internal f) ->
+    find_named_func (Genv.globalenv p) name = Some (AST.Internal f) ->
     no_calls_to (AST.prog_main p) (fn_code f).
 
 Definition main_not_called_dec (p : RTL.program) : {main_not_called p} + {~ main_not_called p}.
@@ -850,7 +845,7 @@ Proof.
 
   apply (equiv_dec (main_not_called_Forall p)). {
     unfold main_not_called_Forall, main_not_called.
-    unfold find_func, Genv.find_symbol.
+    unfold find_named_func, Genv.find_symbol.
     rewrite Forall_forall.
     split.
     - intros H * Hfind.
@@ -872,7 +867,7 @@ Qed.
 
 Definition only_main_has_stack (p : RTL.program) :=
   forall name f,
-    find_func (Genv.globalenv p) name = Some (AST.Internal f) ->
+    find_named_func (Genv.globalenv p) name = Some (AST.Internal f) ->
     name = (AST.prog_main p) \/ (RTL.fn_stacksize f) = 0.
 
 Definition only_main_has_stack_dec (p : RTL.program) : {only_main_has_stack p} + {~ only_main_has_stack p}.
@@ -886,7 +881,7 @@ Proof.
 
   apply (equiv_dec (only_main_has_stack_Forall p)). {
     unfold only_main_has_stack_Forall, only_main_has_stack.
-    unfold find_func, Genv.find_symbol.
+    unfold find_named_func, Genv.find_symbol.
     rewrite Forall_forall.
     split.
     - intros H * Hin.
