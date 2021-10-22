@@ -19,13 +19,13 @@
 From compcert Require Import Smallstep Linking Integers Globalenvs.
 From compcert Require Errors.
 From vericert Require HTL.
-From vericert Require Import Vericertlib Veriloggen Verilog ValueInt AssocMap.
+From vericert Require Import Vericertlib Veriloggen Verilog ValueInt AssocMap ASTExtra.
 Require Import Lia.
 
 Local Open Scope assocmap.
 
 Definition match_prog (prog : HTL.program) (tprog : Verilog.program) :=
-  match_program (fun cu f tf => Errors.OK tf = transl_fundef prog f) eq prog tprog.
+  match_program (fun cu f tf => transl_fundef prog f = Errors.OK tf) eq prog tprog.
 
 Lemma transf_program_match:
   forall prog tprog, transl_program prog = Errors.OK tprog -> match_prog prog tprog.
@@ -35,6 +35,35 @@ Qed.
 
 Instance TransfVerilogLink : TransfLink Veriloggenproof.match_prog.
 Admitted.
+
+Definition references (m : HTL.module) (name : AST.ident) : Prop :=
+  exists reg sig, ((HTL.mod_externctrl m) ! reg = Some (name, sig)).
+
+Definition references_mod (ge : HTL.genv) (m m' : HTL.module) : Prop :=
+  exists name, references m name /\
+          find_named_func ge name = Some (AST.Internal m').
+
+Inductive tr_top_module (ge : HTL.genv) (hmod : HTL.module) : Verilog.module -> Prop :=
+  tr_top_module_intro :
+    forall body referenced_bodies,
+      body = mod_body (transl_module None hmod) ->
+      (forall otherhmod,
+          references_mod ge hmod otherhmod <->
+          In (mod_body (transl_module (Some (HTL.mod_clk hmod)) otherhmod))
+             referenced_bodies) ->
+      tr_top_module ge hmod {|
+        mod_start      := HTL.mod_start hmod;
+        mod_reset      := HTL.mod_reset hmod;
+        mod_clk        := HTL.mod_clk hmod;
+        mod_finish     := HTL.mod_finish hmod;
+        mod_return     := HTL.mod_return hmod;
+        mod_st         := HTL.mod_st hmod;
+        mod_stk        := HTL.mod_stk hmod;
+        mod_stk_len    := HTL.mod_stk_len hmod;
+        mod_args       := HTL.mod_params hmod;
+        mod_entrypoint := HTL.mod_entrypoint hmod;
+        mod_body       := body ++ concat referenced_bodies;
+      |}.
 
 (* Inductive match_stacks : list HTL.stackframe -> list stackframe -> Prop := *)
 (* | match_stack : *)
