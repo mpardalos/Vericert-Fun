@@ -7,6 +7,8 @@ This ensures the correctness of the C to Verilog translation according to our Ve
 CompCert's C semantics, removing the need to check the resulting hardware for behavioural
 correctness.
 
+This is the vericert-fun branch, which implements function-level resource sharing. You can read more about this work on the [[https://mpardalos.xyz/thesis.pdf][relevant Master's Thesis]].
+
 ** Features
    :PROPERTIES:
    :CUSTOM_ID: features
